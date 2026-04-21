@@ -6,7 +6,7 @@
 
 - `actions/*/action.yml` — inputs/outputs это контракт
 - `.github/workflows/*.yml` с `on: workflow_call` — сигнатура это контракт
-- Output contracts в `agents/*.md` — их парсят downstream агенты
+- Output contracts в `cast/*.md` продакшенов — их парсят downstream роли
 
 ## Версионирование
 
@@ -17,10 +17,11 @@
 
 ## Конвенции
 
-- Playbooks: `playbooks/<category>/<name>.md`
-- Agents: `agents/<role>.md`
-- Playbook говорит ЧТО делать; agent говорит КТО это делает
-- Финальный system prompt собирается `actions/assemble-prompt` в runtime
+- Playbooks: `playbooks/<category>/<name>.md` — в репе фреймворка
+- Cast roles: `cast/<role>.md` — в репе каждого продакшена
+- Playbook говорит ЧТО делать; role говорит КТО это делает
+- Финальный system prompt собирается `actions/assemble-prompt` в runtime:
+  framework AGENTS.md + production AGENTS.md + cast/<role>.md + playbook
 
 ## Локальное тестирование
 
