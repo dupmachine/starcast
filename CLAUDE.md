@@ -29,6 +29,6 @@
 
 ## Перед breaking changes
 
-1. Проверь, какие редакции используют изменяемый контракт (grep в workspace)
+1. Проверь, какие продакшены используют изменяемый контракт (grep в workspace)
 2. Обнови CHANGELOG.md с migration notes
 3. Не пуши breaking в `@v1` — делай `@v2`
