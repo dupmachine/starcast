@@ -4,9 +4,10 @@
 
 ## Архитектура
 
-- **Playbooks** (`playbooks/<category>/<name>.md`) — живут здесь, в фреймворке. Говорят ЧТО делать.
+- **Actions / reusable workflows** — живут здесь, в фреймворке. Runtime-машинерия.
 - **Cast roles** (`cast/<role>.md`) — живут в каждом продакшене. Говорят КТО делает.
-- **System prompt** при запуске агента = этот файл + production CLAUDE.md + `cast/<role>.md` + playbook.
+- **Playbooks** (`playbooks/<name>.md`) — живут в каждом продакшене. Говорят ЧТО делать.
+- **System prompt** при запуске агента = этот файл + production CLAUDE.md + `cast/<role>.md` + `playbooks/<name>.md`.
 
 ## Публичный API (breaking changes = v bump)
 
