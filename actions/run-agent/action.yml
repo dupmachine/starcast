@@ -72,12 +72,13 @@ runs:
 
     - name: Run agent
       uses: anthropics/claude-code-action@v1
+      env:
+        ANTHROPIC_BASE_URL: ${{ inputs.anthropic_base_url }}
       with:
         anthropic_api_key: ${{ inputs.anthropic_api_key }}
-        anthropic_base_url: ${{ inputs.anthropic_base_url }}
-        model: ${{ inputs.model }}
         github_token: ${{ inputs.github_token }}
-        direct_prompt: |
+        claude_args: --model ${{ inputs.model }}
+        prompt: |
           You are running playbook "${{ inputs.playbook }}" as the "${{ inputs.role }}" role.
           Work on card #${{ inputs.issue_number }} in repository ${{ inputs.production_repo }}.
           Follow your system prompt exactly. Do not deviate from the playbook steps.
