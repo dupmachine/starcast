@@ -47,8 +47,8 @@ runs:
               }
             }
           }' -f org="$ORG" -f name="$REPO" \
-          --jq --arg repo "$REPO" \
-          '.data.organization.projectsV2.nodes[] | select(.title == $repo) | .id')
+          --jq '.data.organization.projectsV2.nodes[]' \
+          | jq -r --arg repo "$REPO" 'select(.title == $repo) | .id')
 
         if [ -z "$PROJECT_ID" ]; then
           echo "No project found with name '$REPO' in org '$ORG'."
