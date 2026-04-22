@@ -78,6 +78,7 @@ runs:
         anthropic_api_key: ${{ inputs.anthropic_api_key }}
         github_token: ${{ inputs.github_token }}
         claude_args: --model ${{ inputs.model }} --dangerously-skip-permissions
+        show_full_output: 'true'
         prompt: |
           You are running playbook "${{ inputs.playbook }}" as the "${{ inputs.role }}" role.
           Work on card #${{ inputs.issue_number }} in repository ${{ inputs.production_repo }}.
