@@ -5,9 +5,6 @@ inputs:
   issue_node_id:
     description: 'Issue node ID (github.event.issue.node_id)'
     required: true
-  project_id:
-    description: 'GitHub Project V2 node ID'
-    required: true
   github_token:
     description: 'GitHub token with project read access'
     required: true
@@ -37,8 +34,28 @@ runs:
         GH_TOKEN: ${{ inputs.github_token }}
       run: |
         ISSUE_ID="${{ inputs.issue_node_id }}"
-        PROJECT_ID="${{ inputs.project_id }}"
         PLAYBOOKS_PATH="${{ inputs.playbooks_path }}"
+        ORG="${{ github.repository_owner }}"
+        REPO="${{ github.event.repository.name }}"
+
+        # Find project by name matching the repository name
+        PROJECT_ID=$(gh api graphql -f query='
+          query($org: String!, $name: String!) {
+            organization(login: $org) {
+              projectsV2(query: $name, first: 5) {
+                nodes { id title }
+              }
+            }
+          }' -f org="$ORG" -f name="$REPO" \
+          --jq --arg repo "$REPO" \
+          '.data.organization.projectsV2.nodes[] | select(.title == $repo) | .id')
+
+        if [ -z "$PROJECT_ID" ]; then
+          echo "No project found with name '$REPO' in org '$ORG'."
+          exit 1
+        fi
+
+        echo "Project ID: $PROJECT_ID"
 
         # Get current card status
         STATUS=$(gh api graphql -f query='
