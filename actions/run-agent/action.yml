@@ -88,6 +88,7 @@ runs:
       with:
         anthropic_api_key: ${{ inputs.anthropic_api_key }}
         github_token: ${{ inputs.github_token }}
+        allowed_bots: '*'
         claude_args: --model ${{ inputs.model }} --dangerously-skip-permissions
         show_full_output: 'true'
         prompt: |
