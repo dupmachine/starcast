@@ -6,7 +6,7 @@ inputs:
     description: 'Cast role to run (filename without .md, e.g. scout, translator)'
     required: true
   playbook:
-    description: 'Playbook to execute (filename without .md, e.g. fullfielding, translating)'
+    description: 'Playbook to execute (filename without .md, e.g. fullfield, translated)'
     required: true
   issue_number:
     description: 'Card number (GitHub Issue) to work on'
