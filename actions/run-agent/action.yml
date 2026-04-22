@@ -20,11 +20,6 @@ inputs:
     required: false
     default: 'claude-sonnet-4-6'
 
-outputs:
-  ran:
-    description: 'Whether the agent actually ran (false if no playbook found for current status)'
-    value: ${{ steps.ran.outputs.ran }}
-
 runs:
   using: composite
   steps:
@@ -80,16 +75,6 @@ runs:
         echo "::group::System prompt (CLAUDE.md)"
         cat CLAUDE.md
         echo "::endgroup::"
-
-    - name: Set ran output
-      id: ran
-      shell: bash
-      run: |
-        if [ -n "${{ steps.resolve.outputs.role }}" ]; then
-          echo "ran=true" >> $GITHUB_OUTPUT
-        else
-          echo "ran=false" >> $GITHUB_OUTPUT
-        fi
 
     - name: Run agent
       if: steps.resolve.outputs.role != ''
