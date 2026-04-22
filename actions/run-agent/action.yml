@@ -1,18 +1,15 @@
 name: 'Starcast Run Agent'
-description: 'Assembles system prompt from framework + production context and runs a role on a card'
+description: 'Resolves playbook, assembles system prompt, and runs the agent on a card'
 
 inputs:
-  role:
-    description: 'Cast role to run (filename without .md, e.g. scout, translator)'
-    required: true
-  playbook:
-    description: 'Playbook to execute (filename without .md, e.g. fullfield, translated)'
-    required: true
   issue_number:
     description: 'Card number (GitHub Issue) to work on'
     required: true
-  production_repo:
-    description: 'Production repo full name (e.g. dupmachine/starcast-xbox)'
+  app_id:
+    description: 'Starcast bot GitHub App ID'
+    required: true
+  private_key:
+    description: 'Starcast bot GitHub App private key'
     required: true
   anthropic_api_key:
     description: 'Anthropic API key'
@@ -25,37 +22,54 @@ inputs:
     description: 'Claude model to use (e.g. claude-sonnet-4-6)'
     required: false
     default: 'claude-sonnet-4-6'
-  github_token:
-    description: 'GitHub token with repo and project write access'
-    required: true
 
 runs:
   using: composite
   steps:
+    - name: Generate bot token
+      id: bot-token
+      uses: tibdex/github-app-token@v2
+      with:
+        app_id: ${{ inputs.app_id }}
+        private_key: ${{ inputs.private_key }}
+        installation_retrieval_mode: organization
+        installation_retrieval_payload: ${{ github.repository_owner }}
+
+    - name: Checkout project
+      uses: actions/checkout@v4
+      with:
+        path: _production
+
+    - name: Resolve playbook
+      id: resolve
+      uses: dupmachine/starcast/actions/resolve-playbook@main
+      with:
+        issue_node_id: ${{ github.event.issue.node_id }}
+        github_token: ${{ steps.bot-token.outputs.token }}
+        playbooks_path: _production/playbooks
+
     - name: Checkout framework
+      if: steps.resolve.outputs.role != ''
       uses: actions/checkout@v4
       with:
         repository: dupmachine/starcast
         path: _starcast
 
-    - name: Checkout production
-      uses: actions/checkout@v4
-      with:
-        repository: ${{ inputs.production_repo }}
-        token: ${{ inputs.github_token }}
-        path: _production
-
     - name: Assemble system prompt
+      if: steps.resolve.outputs.role != ''
       shell: bash
       run: |
-        echo "Assembling system prompt for role=${{ inputs.role }} playbook=${{ inputs.playbook }}"
+        ROLE="${{ steps.resolve.outputs.role }}"
+        PLAYBOOK="${{ steps.resolve.outputs.playbook }}"
+
+        echo "Assembling system prompt for role=$ROLE playbook=$PLAYBOOK"
 
         FRAMEWORK_CLAUDE=_starcast/CLAUDE.md
-        PRODUCTION_CLAUDE=_production/CLAUDE.md
-        ROLE_FILE=_production/roles/${{ inputs.role }}.md
-        PLAYBOOK_FILE=_production/playbooks/${{ inputs.playbook }}.md
+        PROJECT_CLAUDE=_production/CLAUDE.md
+        ROLE_FILE=_production/roles/$ROLE.md
+        PLAYBOOK_FILE=_production/playbooks/$PLAYBOOK.md
 
-        for f in "$FRAMEWORK_CLAUDE" "$PRODUCTION_CLAUDE" "$ROLE_FILE" "$PLAYBOOK_FILE"; do
+        for f in "$FRAMEWORK_CLAUDE" "$PROJECT_CLAUDE" "$ROLE_FILE" "$PLAYBOOK_FILE"; do
           if [ ! -f "$f" ]; then
             echo "ERROR: required file not found: $f"
             exit 1
@@ -63,7 +77,7 @@ runs:
         done
 
         cat "$FRAMEWORK_CLAUDE" \
-            "$PRODUCTION_CLAUDE" \
+            "$PROJECT_CLAUDE" \
             "$ROLE_FILE" \
             "$PLAYBOOK_FILE" \
             > CLAUDE.md
@@ -74,24 +88,19 @@ runs:
         cat CLAUDE.md
         echo "::endgroup::"
 
-        echo "::group::Direct prompt"
-        echo 'You are running playbook "${{ inputs.playbook }}" as the "${{ inputs.role }}" role.'
-        echo 'Work on card #${{ inputs.issue_number }} in repository ${{ inputs.production_repo }}.'
-        echo 'Follow your system prompt exactly. Do not deviate from the playbook steps.'
-        echo "::endgroup::"
-
     - name: Run agent
+      if: steps.resolve.outputs.role != ''
       uses: anthropics/claude-code-action@v1
       env:
         ANTHROPIC_BASE_URL: ${{ inputs.anthropic_base_url }}
         ANTHROPIC_SMALL_FAST_MODEL: ${{ inputs.model }}
       with:
         anthropic_api_key: ${{ inputs.anthropic_api_key }}
-        github_token: ${{ inputs.github_token }}
+        github_token: ${{ steps.bot-token.outputs.token }}
         allowed_bots: '*'
         claude_args: --model ${{ inputs.model }} --dangerously-skip-permissions
         show_full_output: 'true'
         prompt: |
-          You are running playbook "${{ inputs.playbook }}" as the "${{ inputs.role }}" role.
-          Work on card #${{ inputs.issue_number }} in repository ${{ inputs.production_repo }}.
+          You are running playbook "${{ steps.resolve.outputs.playbook }}" as the "${{ steps.resolve.outputs.role }}" role.
+          Work on card #${{ inputs.issue_number }} in repository ${{ github.repository }}.
           Follow your system prompt exactly. Do not deviate from the playbook steps.
