@@ -1,0 +1,103 @@
+name: 'Starcast Resolve Playbook'
+description: 'Determines playbook and role for a card based on its position in the project board'
+
+inputs:
+  issue_node_id:
+    description: 'Issue node ID (github.event.issue.node_id)'
+    required: true
+  project_id:
+    description: 'GitHub Project V2 node ID'
+    required: true
+  github_token:
+    description: 'GitHub token with project read access'
+    required: true
+  playbooks_path:
+    description: 'Path to playbooks directory in the production repo'
+    required: false
+    default: 'playbooks'
+
+outputs:
+  playbook:
+    description: 'Playbook name to execute (empty if no handler found)'
+    value: ${{ steps.resolve.outputs.playbook }}
+  role:
+    description: 'Role to run (empty if no handler found)'
+    value: ${{ steps.resolve.outputs.role }}
+  status:
+    description: 'Current card status'
+    value: ${{ steps.resolve.outputs.status }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve
+      id: resolve
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token }}
+      run: |
+        ISSUE_ID="${{ inputs.issue_node_id }}"
+        PROJECT_ID="${{ inputs.project_id }}"
+        PLAYBOOKS_PATH="${{ inputs.playbooks_path }}"
+
+        # Get current card status
+        STATUS=$(gh api graphql -f query='
+          query($id: ID!) {
+            node(id: $id) {
+              ... on Issue {
+                projectItems(first: 10) {
+                  nodes {
+                    fieldValueByName(name: "Status") {
+                      ... on ProjectV2ItemFieldSingleSelectValue { name }
+                    }
+                  }
+                }
+              }
+            }
+          }' -f id="$ISSUE_ID" --jq '.data.node.projectItems.nodes[0].fieldValueByName.name // ""')
+
+        echo "Status: $STATUS"
+
+        # Get ordered list of status options from the board
+        STATUS_OPTIONS=$(gh api graphql -f query='
+          query($pid: ID!) {
+            node(id: $pid) {
+              ... on ProjectV2 {
+                field(name: "Status") {
+                  ... on ProjectV2SingleSelectField {
+                    options { name }
+                  }
+                }
+              }
+            }
+          }' -f pid="$PROJECT_ID" --jq '[.data.node.field.options[].name]')
+
+        echo "Status options: $STATUS_OPTIONS"
+
+        # Next status = playbook name (lowercase)
+        NEXT_STATUS=$(echo "$STATUS_OPTIONS" | jq -r --arg cur "$STATUS" \
+          'indices($cur)[0] as $i | if $i != null then .[$i+1] // empty else empty end')
+
+        if [ -z "$NEXT_STATUS" ]; then
+          echo "No next status after '$STATUS', skipping."
+          echo "status=$STATUS" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        PLAYBOOK=$(echo "$NEXT_STATUS" | tr '[:upper:]' '[:lower:]')
+        echo "Playbook: $PLAYBOOK"
+
+        # Read role from playbook frontmatter
+        PLAYBOOK_FILE="$PLAYBOOKS_PATH/$PLAYBOOK.md"
+        if [ ! -f "$PLAYBOOK_FILE" ]; then
+          echo "No playbook file found: $PLAYBOOK_FILE, skipping."
+          echo "status=$STATUS" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        ROLE=$(grep -m1 '^role:' "$PLAYBOOK_FILE" | awk '{print $2}')
+        echo "Role: $ROLE"
+
+        echo "status=$STATUS"     >> $GITHUB_OUTPUT
+        echo "playbook=$PLAYBOOK" >> $GITHUB_OUTPUT
+        echo "role=$ROLE"         >> $GITHUB_OUTPUT
