@@ -1,0 +1,62 @@
+name: On Status Change
+
+on:
+  workflow_call:
+    inputs:
+      status:
+        description: 'New card status (e.g. New, Fullfield, Translated)'
+        required: true
+        type: string
+      issue_number:
+        description: 'Card number (GitHub Issue)'
+        required: true
+        type: number
+      production_repo:
+        description: 'Production repo full name (e.g. dupmachine/starcast-xbox)'
+        required: true
+        type: string
+    secrets:
+      anthropic_api_key:
+        required: true
+      github_token:
+        required: true
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: card-${{ inputs.issue_number }}
+      cancel-in-progress: false
+
+    steps:
+      - name: Map status to role and playbook
+        id: mapping
+        shell: bash
+        run: |
+          case "${{ inputs.status }}" in
+            "New")
+              echo "role=scout"         >> $GITHUB_OUTPUT
+              echo "playbook=fullfielding" >> $GITHUB_OUTPUT
+              ;;
+            "Fullfield")
+              echo "role=translator"    >> $GITHUB_OUTPUT
+              echo "playbook=translating" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "No agent mapped for status '${{ inputs.status }}' — skipping."
+              echo "role="             >> $GITHUB_OUTPUT
+              echo "playbook="         >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: Run agent
+        if: steps.mapping.outputs.role != ''
+        uses: dupmachine/starcast/actions/run-agent@main
+        with:
+          role: ${{ steps.mapping.outputs.role }}
+          playbook: ${{ steps.mapping.outputs.playbook }}
+          issue_number: ${{ inputs.issue_number }}
+          production_repo: ${{ inputs.production_repo }}
+          anthropic_api_key: ${{ secrets.anthropic_api_key }}
+          github_token: ${{ secrets.github_token }}
