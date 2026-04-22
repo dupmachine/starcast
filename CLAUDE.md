@@ -137,7 +137,7 @@ Escalation comment format:
 @editor — please advise.
 ```
 
-Add label `needs-human` to the card and stop.
+Add label `error` to the card and stop.
 
 ## Security
 
