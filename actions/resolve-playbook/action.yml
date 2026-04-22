@@ -12,6 +12,14 @@ inputs:
     description: 'Path to playbooks directory in the production repo'
     required: false
     default: 'playbooks'
+  error_label:
+    description: 'Label to add when no playbook found (e.g. error)'
+    required: false
+    default: 'error'
+  processing_label:
+    description: 'Label indicating the card is being processed (e.g. processing)'
+    required: false
+    default: 'processing'
 
 outputs:
   playbook:
@@ -95,11 +103,13 @@ runs:
         NEXT_STATUS=$(echo "$STATUS_OPTIONS" | jq -r --arg cur "$STATUS" \
           'indices($cur)[0] as $i | if $i != null then .[$i+1] // empty else empty end')
 
+        ERROR_LABEL="${{ inputs.error_label }}"
+
         if [ -z "$NEXT_STATUS" ]; then
-          echo "No next status after '$STATUS' — adding error label."
+          echo "No next status after '$STATUS' — adding $ERROR_LABEL label."
           gh issue edit "${{ github.event.issue.number }}" \
             --repo "${{ github.repository }}" \
-            --add-label error
+            --add-label "$ERROR_LABEL"
           echo "status=$STATUS" >> $GITHUB_OUTPUT
           exit 0
         fi
@@ -110,10 +120,10 @@ runs:
         # Read role from playbook frontmatter
         PLAYBOOK_FILE="$PLAYBOOKS_PATH/$PLAYBOOK.md"
         if [ ! -f "$PLAYBOOK_FILE" ]; then
-          echo "No playbook file for '$PLAYBOOK' — adding error label."
+          echo "No playbook file for '$PLAYBOOK' — adding $ERROR_LABEL label."
           gh issue edit "${{ github.event.issue.number }}" \
             --repo "${{ github.repository }}" \
-            --add-label error
+            --add-label "$ERROR_LABEL"
           echo "status=$STATUS" >> $GITHUB_OUTPUT
           exit 0
         fi

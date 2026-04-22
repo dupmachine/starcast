@@ -14,6 +14,10 @@ inputs:
   error_label:
     description: 'Label that marks a failed card (e.g. error)'
     required: true
+  processing_label:
+    description: 'Label indicating the card is being processed (e.g. processing)'
+    required: false
+    default: 'processing'
   bot_token:
     description: 'GitHub App token (used to add trigger_label so it fires workflows)'
     required: true
@@ -30,10 +34,11 @@ runs:
         REPO="${{ github.repository }}"
         TRIGGER="${{ inputs.trigger_label }}"
         ERROR="${{ inputs.error_label }}"
+        PROCESSING="${{ inputs.processing_label }}"
         STATUS="${{ inputs.status }}"
 
         if [ "$STATUS" = "success" ]; then
-          gh issue edit "$ISSUE" --repo "$REPO" --remove-label processing
+          gh issue edit "$ISSUE" --repo "$REPO" --remove-label "$PROCESSING"
 
           LABELS=$(gh issue view "$ISSUE" --repo "$REPO" \
             --json labels --jq '[.labels[].name]')
@@ -43,5 +48,5 @@ runs:
         else
           gh issue edit "$ISSUE" --repo "$REPO" \
             --add-label "$ERROR" \
-            --remove-label processing
+            --remove-label "$PROCESSING"
         fi
