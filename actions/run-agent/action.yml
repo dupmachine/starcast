@@ -5,11 +5,8 @@ inputs:
   issue_number:
     description: 'Card number (GitHub Issue) to work on'
     required: true
-  app_id:
-    description: 'Starcast bot GitHub App ID'
-    required: true
-  private_key:
-    description: 'Starcast bot GitHub App private key'
+  github_token:
+    description: 'GitHub App token with repo and project write access'
     required: true
   anthropic_api_key:
     description: 'Anthropic API key'
@@ -31,15 +28,6 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Generate bot token
-      id: bot-token
-      uses: tibdex/github-app-token@v2
-      with:
-        app_id: ${{ inputs.app_id }}
-        private_key: ${{ inputs.private_key }}
-        installation_retrieval_mode: organization
-        installation_retrieval_payload: ${{ github.repository_owner }}
-
     - name: Checkout project
       uses: actions/checkout@v4
       with:
@@ -50,7 +38,7 @@ runs:
       uses: dupmachine/starcast/actions/resolve-playbook@main
       with:
         issue_node_id: ${{ github.event.issue.node_id }}
-        github_token: ${{ steps.bot-token.outputs.token }}
+        github_token: ${{ inputs.github_token }}
         playbooks_path: _production/playbooks
 
     - name: Checkout framework
@@ -111,7 +99,7 @@ runs:
         ANTHROPIC_SMALL_FAST_MODEL: ${{ inputs.model }}
       with:
         anthropic_api_key: ${{ inputs.anthropic_api_key }}
-        github_token: ${{ steps.bot-token.outputs.token }}
+        github_token: ${{ inputs.github_token }}
         allowed_bots: '*'
         claude_args: --model ${{ inputs.model }} --dangerously-skip-permissions
         show_full_output: 'true'
