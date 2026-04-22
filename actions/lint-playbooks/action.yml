@@ -4,6 +4,8 @@ description: 'Checks that all playbooks have a role: field in frontmatter'
 runs:
   using: composite
   steps:
+    - uses: actions/checkout@v4
+
     - name: Check role field in all playbooks
       shell: bash
       run: |
