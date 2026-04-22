@@ -70,6 +70,16 @@ runs:
 
         echo "System prompt assembled ($(wc -l < CLAUDE.md) lines)"
 
+        echo "::group::System prompt (CLAUDE.md)"
+        cat CLAUDE.md
+        echo "::endgroup::"
+
+        echo "::group::Direct prompt"
+        echo 'You are running playbook "${{ inputs.playbook }}" as the "${{ inputs.role }}" role.'
+        echo 'Work on card #${{ inputs.issue_number }} in repository ${{ inputs.production_repo }}.'
+        echo 'Follow your system prompt exactly. Do not deviate from the playbook steps.'
+        echo "::endgroup::"
+
     - name: Run agent
       uses: anthropics/claude-code-action@v1
       env:
