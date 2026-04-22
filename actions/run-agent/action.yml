@@ -1,5 +1,5 @@
 name: 'Starcast Run Agent'
-description: 'Assembles system prompt from framework + production context and runs a cast role on a card'
+description: 'Assembles system prompt from framework + production context and runs a role on a card'
 
 inputs:
   role:
@@ -52,7 +52,7 @@ runs:
 
         FRAMEWORK_CLAUDE=_starcast/CLAUDE.md
         PRODUCTION_CLAUDE=_production/CLAUDE.md
-        ROLE_FILE=_production/cast/${{ inputs.role }}.md
+        ROLE_FILE=_production/roles/${{ inputs.role }}.md
         PLAYBOOK_FILE=_production/playbooks/${{ inputs.playbook }}.md
 
         for f in "$FRAMEWORK_CLAUDE" "$PRODUCTION_CLAUDE" "$ROLE_FILE" "$PLAYBOOK_FILE"; do
