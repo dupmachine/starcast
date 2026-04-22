@@ -8,9 +8,6 @@ outputs:
   status:
     description: 'Current Status field value of the project card'
     value: ${{ steps.parse.outputs.status }}
-  is_issue:
-    description: 'true if the project item is a GitHub Issue, false otherwise'
-    value: ${{ steps.parse.outputs.is_issue }}
 
 runs:
   using: composite
@@ -21,18 +18,8 @@ runs:
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
-        CONTENT_TYPE="${{ github.event.projects_v2_item.content_type }}"
         ITEM_ID="${{ github.event.projects_v2_item.node_id }}"
         CONTENT_ID="${{ github.event.projects_v2_item.content_node_id }}"
-
-        if [ "$CONTENT_TYPE" != "Issue" ]; then
-          echo "is_issue=false" >> $GITHUB_OUTPUT
-          echo "issue_number="  >> $GITHUB_OUTPUT
-          echo "status="        >> $GITHUB_OUTPUT
-          exit 0
-        fi
-
-        echo "is_issue=true" >> $GITHUB_OUTPUT
 
         ISSUE_NUMBER=$(gh api graphql -f query='
           query($id: ID!) {
