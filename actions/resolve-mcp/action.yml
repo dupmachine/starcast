@@ -46,11 +46,10 @@ for server_name in servers:
     deployment_url = http_conn['deploymentUrl']
     config_schema = http_conn.get('configSchema', {})
 
+    # Use ${VAR} placeholders — resolved by claude-code-action from its env
     params = []
     for prop in config_schema.get('properties', {}):
-        val = os.environ.get(prop, '')
-        if val:
-            params.append(f"{prop}={urllib.parse.quote(val)}")
+        params.append(f"{prop}=${{{prop}}}")
 
     full_url = f"{deployment_url}?{'&'.join(params)}" if params else deployment_url
 
