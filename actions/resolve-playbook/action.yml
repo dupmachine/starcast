@@ -81,6 +81,9 @@ runs:
         echo "Role: $ROLE"
 
         # Extract smithery: list from frontmatter
+        # Result: newline-separated server names, e.g.:
+        #   node2flow/telegram-bot
+        #   github
         SMITHERY_SERVERS=$(awk '
           /^---$/ { if (fm++) exit }
           fm && /^smithery:/ { found=1; next }
