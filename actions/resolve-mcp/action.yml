@@ -17,11 +17,13 @@ runs:
     - name: Resolve
       id: resolve
       shell: bash
+      env:
+        SERVERS: ${{ inputs.servers }}
       run: |
         MCP_CONFIG=$(python3 - <<PYEOF
 import json, urllib.request, urllib.parse, os, sys
 
-servers = [s.strip() for s in """${{ inputs.servers }}""".strip().splitlines() if s.strip()]
+servers = [s.strip() for s in os.environ['SERVERS'].strip().splitlines() if s.strip()]
 
 if not servers:
     print('')
