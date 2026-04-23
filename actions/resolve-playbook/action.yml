@@ -16,10 +16,6 @@ inputs:
     description: 'Label to add when no playbook found (e.g. error)'
     required: false
     default: 'error'
-  processing_label:
-    description: 'Label indicating the card is being processed (e.g. processing)'
-    required: false
-    default: 'processing'
 
 outputs:
   playbook:
@@ -30,7 +26,7 @@ outputs:
     value: ${{ steps.resolve.outputs.role }}
   status:
     description: 'Current card status'
-    value: ${{ steps.resolve.outputs.status }}
+    value: ${{ steps.card-status.outputs.status }}
   smithery_servers:
     description: 'Newline-separated Smithery server names from playbook frontmatter'
     value: ${{ steps.resolve.outputs.smithery_servers }}
@@ -38,82 +34,33 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Get card status
+      id: card-status
+      uses: dupmachine/starcast/actions/get-card-status@main
+      with:
+        issue_node_id: ${{ inputs.issue_node_id }}
+        github_token: ${{ inputs.github_token }}
+
     - name: Resolve
       id: resolve
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.github_token }}
       run: |
-        ISSUE_ID="${{ inputs.issue_node_id }}"
         PLAYBOOKS_PATH="${{ inputs.playbooks_path }}"
-        ORG="${{ github.repository_owner }}"
-        REPO="${{ github.event.repository.name }}"
-
-        # Find project by name matching the repository name
-        PROJECT_ID=$(gh api graphql -f query='
-          query($org: String!, $name: String!) {
-            organization(login: $org) {
-              projectsV2(query: $name, first: 5) {
-                nodes { id title }
-              }
-            }
-          }' -f org="$ORG" -f name="$REPO" \
-          --jq '.data.organization.projectsV2.nodes[]' \
-          | jq -r --arg repo "$REPO" 'select(.title == $repo) | .id')
-
-        if [ -z "$PROJECT_ID" ]; then
-          echo "No project found with name '$REPO' in org '$ORG'."
-          exit 1
-        fi
-
-        echo "Project ID: $PROJECT_ID"
-
-        # Get current card status
-        STATUS=$(gh api graphql -f query='
-          query($id: ID!) {
-            node(id: $id) {
-              ... on Issue {
-                projectItems(first: 10) {
-                  nodes {
-                    fieldValueByName(name: "Status") {
-                      ... on ProjectV2ItemFieldSingleSelectValue { name }
-                    }
-                  }
-                }
-              }
-            }
-          }' -f id="$ISSUE_ID" --jq '.data.node.projectItems.nodes[0].fieldValueByName.name // ""')
-
-        echo "Status: $STATUS"
-
-        # Get ordered list of status options from the board
-        STATUS_OPTIONS=$(gh api graphql -f query='
-          query($pid: ID!) {
-            node(id: $pid) {
-              ... on ProjectV2 {
-                field(name: "Status") {
-                  ... on ProjectV2SingleSelectField {
-                    options { name }
-                  }
-                }
-              }
-            }
-          }' -f pid="$PROJECT_ID" --jq '[.data.node.field.options[].name]')
-
-        echo "Status options: $STATUS_OPTIONS"
+        STATUS="${{ steps.card-status.outputs.status }}"
+        STATUS_OPTIONS="${{ steps.card-status.outputs.status_options }}"
+        ERROR_LABEL="${{ inputs.error_label }}"
 
         # Next status = playbook name (lowercase)
         NEXT_STATUS=$(echo "$STATUS_OPTIONS" | jq -r --arg cur "$STATUS" \
           'indices($cur)[0] as $i | if $i != null then .[$i+1] // empty else empty end')
-
-        ERROR_LABEL="${{ inputs.error_label }}"
 
         if [ -z "$NEXT_STATUS" ]; then
           echo "No next status after '$STATUS' — adding $ERROR_LABEL label."
           gh issue edit "${{ github.event.issue.number }}" \
             --repo "${{ github.repository }}" \
             --add-label "$ERROR_LABEL"
-          echo "status=$STATUS" >> $GITHUB_OUTPUT
           exit 0
         fi
 
@@ -127,7 +74,6 @@ runs:
           gh issue edit "${{ github.event.issue.number }}" \
             --repo "${{ github.repository }}" \
             --add-label "$ERROR_LABEL"
-          echo "status=$STATUS" >> $GITHUB_OUTPUT
           exit 0
         fi
 
@@ -159,9 +105,8 @@ print('\n'.join(servers))
 PYEOF
 )
 
-        echo "status=$STATUS"         >> $GITHUB_OUTPUT
-        echo "playbook=$PLAYBOOK"     >> $GITHUB_OUTPUT
-        echo "role=$ROLE"             >> $GITHUB_OUTPUT
+        echo "playbook=$PLAYBOOK" >> $GITHUB_OUTPUT
+        echo "role=$ROLE"         >> $GITHUB_OUTPUT
         if [ -n "$SMITHERY_SERVERS" ]; then
           echo "smithery_servers<<EOF" >> $GITHUB_OUTPUT
           echo "$SMITHERY_SERVERS"     >> $GITHUB_OUTPUT
