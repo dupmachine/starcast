@@ -1,4 +1,7 @@
-import json, urllib.request, os, sys
+import json
+import os
+import sys
+import urllib.request
 
 servers = [s.strip() for s in os.environ['SERVERS'].strip().splitlines() if s.strip()]
 
