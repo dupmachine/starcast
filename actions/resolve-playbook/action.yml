@@ -46,11 +46,11 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.github_token }}
+        STATUS: ${{ steps.card-status.outputs.status }}
+        STATUS_OPTIONS: ${{ steps.card-status.outputs.status_options }}
+        ERROR_LABEL: ${{ inputs.error_label }}
       run: |
         PLAYBOOKS_PATH="${{ inputs.playbooks_path }}"
-        STATUS="${{ steps.card-status.outputs.status }}"
-        STATUS_OPTIONS="${{ steps.card-status.outputs.status_options }}"
-        ERROR_LABEL="${{ inputs.error_label }}"
 
         # Next status = playbook name (lowercase)
         NEXT_STATUS=$(echo "$STATUS_OPTIONS" | jq -r --arg cur "$STATUS" \
