@@ -81,29 +81,12 @@ runs:
         echo "Role: $ROLE"
 
         # Extract smithery: list from frontmatter
-        SMITHERY_SERVERS=$(python3 - "$PLAYBOOK_FILE" <<'PYEOF'
-import sys
-servers = []
-in_frontmatter = False
-in_smithery = False
-with open(sys.argv[1]) as f:
-    for i, line in enumerate(f):
-        line = line.rstrip()
-        if i == 0 and line == '---':
-            in_frontmatter = True; continue
-        if in_frontmatter and line == '---':
-            break
-        if in_frontmatter:
-            if line.startswith('smithery:'):
-                in_smithery = True; continue
-            if in_smithery:
-                if line.startswith('  - '):
-                    servers.append(line.strip()[2:].strip())
-                elif not line.startswith(' '):
-                    in_smithery = False
-print('\n'.join(servers))
-PYEOF
-)
+        SMITHERY_SERVERS=$(awk '
+          /^---$/ { if (fm++) exit }
+          fm && /^smithery:/ { found=1; next }
+          fm && found && /^  - / { sub(/^  - /, ""); print }
+          fm && found && !/^  / { found=0 }
+        ' "$PLAYBOOK_FILE")
 
         echo "playbook=$PLAYBOOK" >> $GITHUB_OUTPUT
         echo "role=$ROLE"         >> $GITHUB_OUTPUT
