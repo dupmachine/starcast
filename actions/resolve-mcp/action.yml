@@ -20,8 +20,7 @@ runs:
       env:
         SERVERS: ${{ inputs.servers }}
       run: |
-        SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-        MCP_CONFIG=$(python3 "$SCRIPT_DIR/resolve.py")
+        MCP_CONFIG=$(python3 "$GITHUB_ACTION_PATH/resolve.py")
 
         echo "MCP config: $MCP_CONFIG"
 
