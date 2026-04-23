@@ -31,6 +31,9 @@ outputs:
   status:
     description: 'Current card status'
     value: ${{ steps.resolve.outputs.status }}
+  mcp_config:
+    description: 'MCP config JSON built from smithery: field in playbook frontmatter'
+    value: ${{ steps.resolve.outputs.mcp_config }}
 
 runs:
   using: composite
@@ -131,6 +134,86 @@ runs:
         ROLE=$(grep -m1 '^role:' "$PLAYBOOK_FILE" | awk '{print $2}')
         echo "Role: $ROLE"
 
+        # Build mcp_config from smithery: field in frontmatter
+        MCP_CONFIG=$(python3 - "$PLAYBOOK_FILE" <<'PYEOF'
+import sys, json, urllib.request, os
+
+playbook_file = sys.argv[1]
+
+# Extract smithery: list from YAML frontmatter
+servers = []
+in_frontmatter = False
+in_smithery = False
+with open(playbook_file) as f:
+    for i, line in enumerate(f):
+        line = line.rstrip()
+        if i == 0 and line == '---':
+            in_frontmatter = True
+            continue
+        if in_frontmatter and line == '---':
+            break
+        if in_frontmatter:
+            if line.startswith('smithery:'):
+                in_smithery = True
+                continue
+            if in_smithery:
+                if line.startswith('  - '):
+                    servers.append(line.strip()[2:].strip())
+                elif not line.startswith(' '):
+                    in_smithery = False
+
+if not servers:
+    print('')
+    sys.exit(0)
+
+mcp_servers = {}
+for server_name in servers:
+    url = f"https://registry.smithery.ai/servers/{server_name}"
+    try:
+        req = urllib.request.urlopen(url, timeout=10)
+        data = json.loads(req.read())
+    except Exception as e:
+        print(f"Warning: could not fetch {server_name}: {e}", file=sys.stderr)
+        continue
+
+    connections = data.get('connections', [])
+    http_conn = next((c for c in connections if c.get('type') == 'http'), None)
+    if not http_conn:
+        print(f"Warning: no HTTP connection for {server_name}", file=sys.stderr)
+        continue
+
+    deployment_url = http_conn['deploymentUrl']
+    config_schema = http_conn.get('configSchema', {})
+
+    # Build query params from env vars
+    params = []
+    for prop, schema in config_schema.get('properties', {}).items():
+        val = os.environ.get(prop, '')
+        if val:
+            params.append(f"{prop}={urllib.parse.quote(val)}")
+
+    import urllib.parse
+    full_url = deployment_url
+    if params:
+        full_url = f"{deployment_url}?{'&'.join(params)}"
+
+    key = server_name.split('/')[-1]
+    mcp_servers[key] = {"type": "http", "url": full_url}
+
+if mcp_servers:
+    print(json.dumps({"mcpServers": mcp_servers}))
+else:
+    print('')
+PYEOF
+)
+
+        echo "MCP config: $MCP_CONFIG"
+
         echo "status=$STATUS"     >> $GITHUB_OUTPUT
         echo "playbook=$PLAYBOOK" >> $GITHUB_OUTPUT
         echo "role=$ROLE"         >> $GITHUB_OUTPUT
+        if [ -n "$MCP_CONFIG" ]; then
+          echo "mcp_config<<EOF" >> $GITHUB_OUTPUT
+          echo "$MCP_CONFIG"     >> $GITHUB_OUTPUT
+          echo "EOF"             >> $GITHUB_OUTPUT
+        fi

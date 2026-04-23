@@ -93,6 +93,7 @@ runs:
         allowed_bots: '*'
         claude_args: --model ${{ inputs.model }} --dangerously-skip-permissions
         show_full_output: 'true'
+        mcp_config: ${{ steps.resolve.outputs.mcp_config }}
         prompt: |
           You are running playbook "${{ steps.resolve.outputs.playbook }}" as the "${{ steps.resolve.outputs.role }}" role.
           Work on card #${{ inputs.issue_number }} in repository ${{ github.repository }}.
