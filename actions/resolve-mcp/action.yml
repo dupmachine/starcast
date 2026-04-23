@@ -1,0 +1,70 @@
+name: 'Starcast Resolve MCP'
+description: 'Builds mcp_config JSON from a list of Smithery server names'
+
+inputs:
+  servers:
+    description: 'Newline-separated list of Smithery server names (e.g. node2flow/telegram-bot)'
+    required: true
+
+outputs:
+  mcp_config:
+    description: 'MCP config JSON ready to pass to claude-code-action'
+    value: ${{ steps.resolve.outputs.mcp_config }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve
+      id: resolve
+      shell: bash
+      run: |
+        MCP_CONFIG=$(python3 - <<PYEOF
+import json, urllib.request, urllib.parse, os, sys
+
+servers = [s.strip() for s in """${{ inputs.servers }}""".strip().splitlines() if s.strip()]
+
+if not servers:
+    print('')
+    sys.exit(0)
+
+mcp_servers = {}
+for server_name in servers:
+    url = f"https://registry.smithery.ai/servers/{server_name}"
+    try:
+        req = urllib.request.urlopen(url, timeout=10)
+        data = json.loads(req.read())
+    except Exception as e:
+        print(f"Warning: could not fetch {server_name}: {e}", file=sys.stderr)
+        continue
+
+    connections = data.get('connections', [])
+    http_conn = next((c for c in connections if c.get('type') == 'http'), None)
+    if not http_conn:
+        print(f"Warning: no HTTP connection for {server_name}", file=sys.stderr)
+        continue
+
+    deployment_url = http_conn['deploymentUrl']
+    config_schema = http_conn.get('configSchema', {})
+
+    params = []
+    for prop in config_schema.get('properties', {}):
+        val = os.environ.get(prop, '')
+        if val:
+            params.append(f"{prop}={urllib.parse.quote(val)}")
+
+    full_url = f"{deployment_url}?{'&'.join(params)}" if params else deployment_url
+
+    key = server_name.split('/')[-1]
+    mcp_servers[key] = {"type": "http", "url": full_url}
+
+print(json.dumps({"mcpServers": mcp_servers}) if mcp_servers else '')
+PYEOF
+)
+
+        echo "MCP config: $MCP_CONFIG"
+
+        if [ -n "$MCP_CONFIG" ]; then
+          echo "mcp_config<<EOF" >> $GITHUB_OUTPUT
+          echo "$MCP_CONFIG"     >> $GITHUB_OUTPUT
+          echo "EOF"             >> $GITHUB_OUTPUT
+        fi

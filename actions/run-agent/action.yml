@@ -41,6 +41,13 @@ runs:
         playbooks_path: _production/playbooks
         error_label: ${{ inputs.error_label }}
 
+    - name: Resolve MCP
+      id: mcp
+      if: steps.resolve.outputs.role != '' && steps.resolve.outputs.smithery_servers != ''
+      uses: dupmachine/starcast/actions/resolve-mcp@main
+      with:
+        servers: ${{ steps.resolve.outputs.smithery_servers }}
+
     - name: Checkout framework
       if: steps.resolve.outputs.role != ''
       uses: actions/checkout@v4
@@ -93,7 +100,7 @@ runs:
         allowed_bots: '*'
         claude_args: --model ${{ inputs.model }} --dangerously-skip-permissions
         show_full_output: 'true'
-        mcp_config: ${{ steps.resolve.outputs.mcp_config }}
+        mcp_config: ${{ steps.mcp.outputs.mcp_config }}
         prompt: |
           You are running playbook "${{ steps.resolve.outputs.playbook }}" as the "${{ steps.resolve.outputs.role }}" role.
           Work on card #${{ inputs.issue_number }} in repository ${{ github.repository }}.
